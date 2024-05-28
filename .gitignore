@@ -3,3 +3,4 @@
 *.xml
 credentials.env
 *.iml
+.DS_Store
