@@ -14,10 +14,10 @@ warnings.filterwarnings('ignore', category=DeprecationWarning,
                                 ' and will be removed in 0.3.0. Use invoke instead.')
 
 
-def question_answer(question, temperature=0, chain_type='stuff'):
+def question_answer(question, top_k=3, temperature=0, chain_type='stuff'):
 
     # Returns documents from Pinecone Vector Database based on Semantic Search from {Question}
-    document_input = query(question)
+    document_input = query(question, top_k=top_k)
 
     # Defines LLM to be used
     large_language_model = OpenAI(api_key=credential('OPENAI_API_KEY'), temperature=temperature)

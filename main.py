@@ -16,14 +16,16 @@ os.environ["TOKENIZERS_PARALLELISM"] = 'false'
 
 if __name__ == '__main__':
 
+    # embed_and_store('https://www.youtube.com/watch?v=8Ym7f1an0Rs&list=PL6LH0ngwf3Ht1l7yOr7zsWB77ywwMsoUb')
+    # embed_and_store('Extended Essay copy.pdf')
+
+    # empty_vector_space()
+
     while True:
 
-        print()
+        question = input('You: ')
 
-        query = input('Question: ')
+        response = question_answer(question=question, temperature=0.3)
 
-        answer = question_answer(question=query, temperature=0.5)
+        print(f'AI:{response}')
 
-        print(answer)
-
-        time.sleep(3)

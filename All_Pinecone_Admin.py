@@ -1,6 +1,7 @@
-# Langchain Imports
-from langchain_community.document_loaders import TextLoader, UnstructuredPDFLoader, OnlinePDFLoader, PyPDFLoader
+# Langchain Imports (TextLoader: .md, .txt - PyPDFLoader: .PDF - YoutubeLoader: Hyperlink)
+from langchain_community.document_loaders import TextLoader, PyPDFLoader, YoutubeLoader
 from langchain_text_splitters import CharacterTextSplitter  # Document Chunk Splitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document  # Embedding Format -> Document Format
 # Sentence Transformer Import
 from sentence_transformers import SentenceTransformer
@@ -40,36 +41,66 @@ if index_name not in pc.list_indexes().names():
     )
 
 
-def embed_and_store(file_path, chunk_size=1000, chunk_overlap=0):
+def embed_and_store(file_path, chunk_size=1000, chunk_overlap=0, language='en', translation='en'):
 
     '''Embeds the provided content using (all-MiniLM-L6-v2) embedding model and
     appends Pinecone Vector Database with the converted vectors.'''
 
-    path_end = file_path.split('.')
-    sort = path_end[1]
+    split_path = file_path.split('.')
+    sort = split_path[-1]
     loader = None
 
-    if sort == 'pdf':
-        loader = PyPDFLoader(file_path)
-    elif sort == 'txt':
-        loader = TextLoader(file_path)
+    # Ensures the same or different embeddings are not appended to the
+    # Vector Database at the same time - Break
+    while True:
 
-    documents = loader.load()
-    text_splitter = CharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    docs = text_splitter.split_documents(documents)
+        if 'youtube' in split_path:
 
-    vectors = []
-    for i, doc in enumerate(docs):
-        doc_text = doc.page_content
-        doc_embedding = embedding_model.encode(doc_text)
-        vectors.append({
-            'id': str(i),
-            'values': doc_embedding.tolist(),
-            'metadata': {'text': doc_text}
-        })
+            loader = YoutubeLoader.from_youtube_url(file_path, add_video_info=True,
+                                                    language=[language], translation=translation)
 
-    index.upsert(vectors)
-    time.sleep(3)
+            documents = loader.load()
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+            texts = text_splitter.split_documents(documents)
+
+            vectors = []
+            for i, doc in enumerate(texts):
+                doc_text = doc.page_content
+                doc_embedding = embedding_model.encode(doc_text)
+                vectors.append({
+                    'id': f'youtube_{i}_{int(time.time())}',
+                    'values': doc_embedding.tolist(),
+                    'metadata': {'text': doc_text}
+                })
+
+            index.upsert(vectors)
+            time.sleep(3)
+
+            break
+
+        elif sort == 'pdf':
+            loader = PyPDFLoader(file_path)
+        elif sort == 'txt':
+            loader = TextLoader(file_path)
+        elif sort == 'md':
+            loader = TextLoader(file_path)
+
+        documents = loader.load()
+        text_splitter = CharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        docs = text_splitter.split_documents(documents)
+
+        vectors = []
+        for i, doc in enumerate(docs):
+            doc_text = doc.page_content
+            doc_embedding = embedding_model.encode(doc_text)
+            vectors.append({
+                'id': f'{sort}_{i}_{int(time.time())}',
+                'values': doc_embedding.tolist(),
+                'metadata': {'text': doc_text}
+            })
+
+        index.upsert(vectors)
+        time.sleep(3)
 
 
 def query(question, top_k=3):
@@ -99,7 +130,6 @@ def empty_vector_space():
     pinecone_vd = Pinecone(api_key=credential('API_KEY_PINECONE'))
 
     if index_name in pinecone_vd.list_indexes().names():
-        # index = pc.Index(credential('PINECONE_INDEX_NAME'))
 
         index.delete(delete_all=True)
         print(f'All Vectors Have Been Deleted!')
