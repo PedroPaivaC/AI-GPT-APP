@@ -22,6 +22,7 @@ warnings.filterwarnings('ignore', category=FutureWarning,
                                 'Downloads always resume when possible. If you want to force a new download, '
                                 'use `force_download=True`.')
 
+# Embedding Model
 model_name = 'all-MiniLM-L6-v2'
 embedding_model = SentenceTransformer(model_name)
 
@@ -29,22 +30,66 @@ pc = Pinecone(api_key=credential('API_KEY_PINECONE'))
 index_name = credential('PINECONE_INDEX_NAME')
 index = pc.Index(index_name)
 
-if index_name not in pc.list_indexes().names():
-    pc.create_index(
-        name=index_name,
-        dimension=384,
-        metric='cosine',
-        spec=ServerlessSpec(
-            cloud='aws',
-            region='us-east-1'
-        )
-    )
+
+def create_vd_index(name=index_name, dimension=384,
+                    metric='cosine', cloud='aws', region='us-east-1'):
+
+    """Creates new Index at Pinecone Vector Database.
+
+    :param name:  New index's name.
+    :type name: str
+    :param dimension: New index's vector's dimension. Dimension should match
+        those returned by the embedding model.
+    :type dimension: int
+    :param metric: Type of metric used in the vector index when querying, one of
+        {'cosine', 'dotproduct', 'euclidean'}. Defaults to 'cosine'.
+    :type metric: str, optional
+    :param cloud: FIXME!
+    :type cloud: str, optional
+    :param region: FIXME!
+    :type region: str, optional
+
+        """
+
+    try:
+
+        if index_name not in pc.list_indexes().names():
+            pc.create_index(
+                name=index_name,
+                dimension=dimension,
+                metric=metric,
+                spec=ServerlessSpec(
+                    cloud=cloud,
+                    region=region
+                )
+            )
+
+    except Error:
+
+        print(f'Unexpected Behaviour: {Error}')
 
 
 def embed_and_store(file_path, chunk_size=1000, chunk_overlap=0, language='en', translation='en'):
 
-    '''Embeds the provided content using (all-MiniLM-L6-v2) embedding model and
-    appends Pinecone Vector Database with the converted vectors.'''
+    """Embeds the provided content using (all-MiniLM-L6-v2) embedding model
+        and appends Pinecone Vector Database with the converted vectors.
+
+    :param file_path: Path of file or Youtube video link to be split and embedded.
+    :type file_path: str
+    :param chunk_size: Number of characters that each vector containing embedded
+        content should have. Defaults to 1000.
+    :type chunk_size: int, optional
+    :param chunk_overlap: Number of characters shared by two consecutive chunks.
+        Ex: (chunk_size=1000, chunk_overlap=100), chunk_1 will be assigned
+        characters 1-1000, while chunk_2 characters 900-1900.
+        i.e: big chunk overlaps help preserve content context. Defaults to 0.
+    :type chunk_overlap: int, optional
+    :param language: Language of the content being embedded. Defaults to 'en'.
+    :type language: str, optional
+    :param translation: FIXME!
+    :type translation: str, optional
+
+        """
 
     split_path = file_path.split('.')
     sort = split_path[-1]
@@ -103,10 +148,18 @@ def embed_and_store(file_path, chunk_size=1000, chunk_overlap=0, language='en', 
         time.sleep(3)
 
 
-def query(question, top_k=3):
+def query(question, top_k):
 
-    '''Performs semantic search on Pinecone Vector Database
-    and returns 'top_k' closest neighbors.'''
+    """Performs semantic search on Pinecone Vector Database
+        and returns 'top_k' closest neighbors.
+
+    :param question: Query to have semantic search performed on the respective
+        Vector Database.
+    :type question: str
+    :param top_k: Number of closest neighbors to be returned upon semantic search.
+    :type top_k: int, optional
+
+       """
 
     model = SentenceTransformer(model_name)
 
@@ -124,8 +177,8 @@ def query(question, top_k=3):
 
 def empty_vector_space():
 
-    '''Empties Pinecone Vector Space.
-    Should be used at the end of applications or to separate them.'''
+    """Empties Pinecone Vector Space.
+    Should be used at the end of applications or to separate them."""
 
     pinecone_vd = Pinecone(api_key=credential('API_KEY_PINECONE'))
 
